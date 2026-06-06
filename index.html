@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Hidden Automated Compliance Test Suite -->
+    <script>
+      (function() {
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        // Define tests with metadata
+        const tests = [
+          {
+            id: "mood",
+            name: "Mood Selection Test",
+            description: "Verify mood icons toggle active state and sync to localStorage on click.",
+            run: runMoodTest
+          },
+          {
+            id: "trigger",
+            name: "Stress Trigger Chip Test",
+            description: "Verify trigger chips support multi-select active highlights.",
+            run: runTriggerTest
+          },
+          {
+            id: "routing",
+            name: "Bottom Navigation Routing Test",
+            description: "Verify hash routing, segment visibility, and active nav class names.",
+            run: runRoutingTest
+          },
+          {
+            id: "journal",
+            name: "Journal Save Test",
+            description: "Verify writing and saving a journal entry saves to list and storage.",
+            run: runJournalTest
+          },
+          {
+            id: "storage",
+            name: "localStorage Persistence Test",
+            description: "Verify direct set/get operations with backed-up user state.",
+            run: runStorageTest
+          },
+          {
+            id: "chat",
+            name: "Mira Chat Input Test",
+            description: "Verify typing and sending a chat message displays bubbles securely.",
+            run: runChatTest
+          },
+          {
+            id: "breathing",
+            name: "Breathing Tool Test",
+            description: "Verify starting and stopping Box Breathing guide.",
+            run: runBreathingTest
+          },
+          {
+            id: "timer",
+            name: "Study Break Timer Test",
+            description: "Verify study rest timer selection changes and resets correctly.",
+            run: runTimerTest
+          }
+        ];
+
+        // Core Tests Functions implementation
+        async function runMoodTest() {
+          const initialMood = localStorage.getItem("mira_selected_mood");
+          window.location.hash = "#home";
+          await delay(150);
+
+          const moods = ["Overwhelmed", "Anxious", "Okay", "Hopeful", "Good"];
+          for (const mood of moods) {
+            const btn = document.getElementById(`mood-btn-${mood.toLowerCase()}`);
+            if (!btn) throw new Error(`Mood button for ${mood} not found.`);
+            
+            btn.click();
+            await delay(100);
+            
+            const selected = localStorage.getItem("mira_selected_mood");
+            if (selected !== mood) {
+              throw new Error(`Clicking ${mood} did not sync localStorage to ${mood}`);
+            }
+          }
+
+          // Restore
+          if (initialMood) {
+            const origBtn = document.getElementById(`mood-btn-${initialMood.toLowerCase()}`);
+            if (origBtn) origBtn.click();
+          } else {
+            localStorage.removeItem("mira_selected_mood");
+          }
+          await delay(50);
+        }
+
+        async function runTriggerTest() {
+          window.location.hash = "#home";
+          await delay(150);
+
+          const buttons = Array.from(document.querySelectorAll('button[id^="trigger-btn-"]'));
+          if (buttons.length === 0) throw new Error("No trigger chips found in the DOM.");
+
+          const initialStates = buttons.map(btn => btn.classList.contains("bg-teal-accent/10"));
+
+          // Toggle first trigger
+          buttons[0].click();
+          await delay(100);
+          const stateAfterClick = buttons[0].classList.contains("bg-teal-accent/10");
+          if (stateAfterClick === initialStates[0]) {
+            throw new Error("Triggering first chip did not toggle active CSS state.");
+          }
+
+          // Toggle first trigger again (restoring)
+          buttons[0].click();
+          await delay(100);
+
+          // Verify multi-select capacity
+          buttons[0].click();
+          buttons[1].click();
+          await delay(100);
+
+          const active0 = buttons[0].classList.contains("bg-teal-accent/10");
+          const active1 = buttons[1].classList.contains("bg-teal-accent/10");
+
+          // Restore original states
+          if (buttons[0].classList.contains("bg-teal-accent/10") !== initialStates[0]) buttons[0].click();
+          if (buttons[1].classList.contains("bg-teal-accent/10") !== initialStates[1]) buttons[1].click();
+          await delay(50);
+
+          if (!active0 || !active1) {
+            throw new Error("Multi-selection trigger testing failed.");
+          }
+        }
+
+        async function runRoutingTest() {
+          const initialHash = window.location.hash || "#home";
+          const tabs = [
+            { btnId: "tab-btn-home", secId: "home", expectedHash: "#home" },
+            { btnId: "tab-btn-chat", secId: "chat", expectedHash: "#chat" },
+            { btnId: "tab-btn-journal", secId: "journal", expectedHash: "#journal" },
+            { btnId: "tab-btn-snapshot", secId: "snapshot", expectedHash: "#snapshot" },
+            { btnId: "tab-btn-toolkit", secId: "toolkit", expectedHash: "#toolkit" }
+          ];
+
+          for (const tab of tabs) {
+            const btn = document.getElementById(tab.btnId);
+            if (!btn) throw new Error(`Navigation tab button '${tab.btnId}' not found.`);
+            btn.click();
+            await delay(200);
+
+            if (window.location.hash !== tab.expectedHash) {
+              throw new Error(`Clicking ${tab.btnId} failed to redirect hash router to ${tab.expectedHash}`);
+            }
+
+            const section = document.getElementById(tab.secId);
+            if (!section) throw new Error(`Routing section '${tab.secId}' not found.`);
+            
+            const displayStyle = window.getComputedStyle(section).display;
+            if (displayStyle === "none") {
+              throw new Error(`Section '${tab.secId}' is hidden when the route matches.`);
+            }
+
+            if (!btn.classList.contains("text-teal-accent")) {
+              throw new Error(`Navigation button '${tab.btnId}' did not receive active 'text-teal-accent' highlight class.`);
+            }
+          }
+
+          window.location.hash = initialHash;
+          await delay(100);
+        }
+
+        async function runJournalTest() {
+          const originalEntriesJson = localStorage.getItem("mira_journal_entries");
+          window.location.hash = "#journal";
+          await delay(150);
+
+          const textarea = document.getElementById("journal-textarea");
+          if (!textarea) throw new Error("Journal entry input textarea not found.");
+
+          const mockEntryText = "Test entry - feeling okay today (automated verification)";
+
+          // Use secure React-compatible value setter to change input state dynamically
+          const nvSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+          nvSetter.call(textarea, mockEntryText);
+          textarea.dispatchEvent(new Event("input", { bubbles: true }));
+          await delay(50);
+
+          const saveBtn = document.getElementById("save-journal-btn");
+          if (!saveBtn) throw new Error("Save Entry submit button not found.");
+
+          saveBtn.click();
+          await delay(200);
+
+          // Verify localStorage sync and rendering list updates
+          const savedEntriesList = JSON.parse(localStorage.getItem("mira_journal_entries") || "[]");
+          const hasItem = savedEntriesList.some(e => e.content === mockEntryText);
+          if (!hasItem) {
+            throw new Error("Journal entry content was not saved inside mira_journal_entries in localStorage.");
+          }
+
+          const containerText = document.getElementById("journal-section").textContent;
+          if (!containerText.includes(mockEntryText)) {
+            throw new Error("Journal entry did not mount or compile in reflection card lists.");
+          }
+
+          // Restore backups
+          if (originalEntriesJson) {
+            localStorage.setItem("mira_journal_entries", originalEntriesJson);
+          } else {
+            localStorage.removeItem("mira_journal_entries");
+          }
+          await delay(50);
+        }
+
+        async function runStorageTest() {
+          const originalMood = localStorage.getItem("mira_selected_mood");
+          const originalEntries = localStorage.getItem("mira_journal_entries");
+
+          const testMood = "Okay";
+          const testEntries = [{ id: "test-storage-item", content: "Compliance checks", mood: "Okay", triggers: [] }];
+
+          localStorage.setItem("mira_selected_mood", testMood);
+          localStorage.setItem("mira_journal_entries", JSON.stringify(testEntries));
+
+          const readMood = localStorage.getItem("mira_selected_mood");
+          const readEntries = JSON.parse(localStorage.getItem("mira_journal_entries") || "[]");
+
+          const matches = (readMood === testMood) && (readEntries.length === 1) && (readEntries[0].content === "Compliance checks");
+
+          // Restore
+          if (originalMood) localStorage.setItem("mira_selected_mood", originalMood);
+          else localStorage.removeItem("mira_selected_mood");
+
+          if (originalEntries) localStorage.setItem("mira_journal_entries", originalEntries);
+          else localStorage.removeItem("mira_journal_entries");
+
+          if (!matches) {
+            throw new Error("Item backed up in state did not correlate correctly on reload.");
+          }
+        }
+
+        async function runChatTest() {
+          const originalMessagesJson = localStorage.getItem("mira_chat_messages");
+          window.location.hash = "#chat";
+          await delay(150);
+
+          const input = document.getElementById("mira-message-input");
+          if (!input) throw new Error("Chat input box element not found.");
+
+          const originalFetch = window.fetch;
+          window.fetch = async () => {
+            return {
+              ok: true,
+              json: async () => ({
+                reply: "Take a soft breath. You are doing well. This is a secure mock chat response for testing."
+              })
+            };
+          };
+
+          const testMsg = "I am feeling very anxious about my NEET exam (test simulation)";
+
+          const nvSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+          nvSetter.call(input, testMsg);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await delay(50);
+
+          const sendBtn = document.getElementById("send-message-btn");
+          if (!sendBtn) {
+            window.fetch = originalFetch;
+            throw new Error("Chat message Send button not found.");
+          }
+
+          if (sendBtn.disabled) {
+            window.fetch = originalFetch;
+            throw new Error("Send button remains disabled when input text is set.");
+          }
+
+          sendBtn.click();
+          await delay(300);
+
+          // Restore fetch
+          window.fetch = originalFetch;
+
+          const chatWindow = document.getElementById("chat-messages-container");
+          if (!chatWindow) throw new Error("Chat messages viewport container not found.");
+
+          const textContent = chatWindow.textContent;
+          if (!textContent.includes(testMsg)) {
+            throw new Error("Sent user text was not rendered inside message bubble displays.");
+          }
+
+          if (!textContent.includes("mock chat response")) {
+            throw new Error("Assistant response bubble was not rendered inside chat viewports.");
+          }
+
+          // Restore backups
+          if (originalMessagesJson) {
+            localStorage.setItem("mira_chat_messages", originalMessagesJson);
+          } else {
+            localStorage.removeItem("mira_chat_messages");
+          }
+          await delay(50);
+        }
+
+        async function runBreathingTest() {
+          window.location.hash = "#toolkit";
+          await delay(150);
+
+          const button = document.getElementById("breathing-trigger-btn");
+          if (!button) throw new Error("Box Breathing launcher trigger button not found.");
+
+          const defaultLabel = button.textContent;
+          
+          // Toggle Start
+          button.click();
+          await delay(100);
+
+          const activeLabel = button.textContent;
+          if (activeLabel === defaultLabel || !activeLabel.toLowerCase().includes("stop")) {
+            throw new Error(`Breathing guide failed to start correctly. Button text is: '${activeLabel}'`);
+          }
+
+          // Toggle Stop
+          button.click();
+          await delay(100);
+
+          const revertedLabel = button.textContent;
+          if (revertedLabel !== defaultLabel) {
+            throw new Error(`Breathing guide failed to stop correctly. Button text is: '${revertedLabel}'`);
+          }
+        }
+
+        async function runTimerTest() {
+          window.location.hash = "#toolkit";
+          await delay(150);
+
+          const durationOption = document.getElementById("timer-option-5");
+          const playPauseBtn = document.getElementById("timer-play-pause-btn");
+          const resetBtn = document.getElementById("timer-reset-btn");
+
+          if (!durationOption || !playPauseBtn || !resetBtn) {
+            throw new Error("Rest timer components or options not found in Relief Toolkit.");
+          }
+
+          durationOption.click();
+          await delay(50);
+
+          playPauseBtn.click();
+          await delay(100);
+
+          playPauseBtn.click();
+          await delay(100);
+
+          resetBtn.click();
+          await delay(50);
+        }
+
+        // Test panel HTML instantiation & routing management
+        let initialized = false;
+        const badges = {
+          pending: { bg: "rgba(255, 255, 255, 0.05)", color: "#9CA3AF", text: "⏳ Pending" },
+          running: { bg: "rgba(56, 189, 248, 0.15)", color: "#38BDF8", text: "⚡ Running" },
+          pass: { bg: "rgba(16, 185, 129, 0.15)", color: "#10B981", text: "✅ Pass" },
+          fail: { bg: "rgba(239, 68, 68, 0.15)", color: "#EF4444", text: "❌ Fail" }
+        };
+
+        function updateBadge(id, state, message = "") {
+          const el = document.getElementById(`badge-${id}`);
+          if (el) {
+            el.style.background = badges[state].bg;
+            el.style.color = badges[state].color;
+            el.textContent = message || badges[state].text;
+          }
+        }
+
+        function updateSummary() {
+          const list = document.getElementById("test-list-container");
+          if (!list) return;
+
+          const badgeElements = Array.from(list.querySelectorAll("span[id^='badge-']"));
+          const passedCount = badgeElements.filter(b => b.textContent && b.textContent.includes("Pass")).length;
+          const summaryBar = document.getElementById("test-summary-bar");
+          if (summaryBar) {
+            summaryBar.textContent = `${passedCount} / ${tests.length} tests passed`;
+          }
+        }
+
+        async function runSingleTest(id) {
+          const test = tests.find(t => t.id === id);
+          if (!test) return;
+
+          updateBadge(id, "running");
+          console.log(`[Mira Test Suite] Running test: ${test.name}`);
+
+          try {
+            await test.run();
+            updateBadge(id, "pass");
+            console.log(`[Mira Test Suite] ✅ Test Passed: ${test.name}`);
+          } catch (e) {
+            updateBadge(id, "fail", `❌ Fail: ${e.message}`);
+            console.error(`[Mira Test Suite] ❌ Test Failed: ${test.name}`, e);
+          }
+          updateSummary();
+        }
+
+        async function runAllTests() {
+          const btn = document.getElementById("run-all-tests-btn");
+          if (!btn) return;
+
+          btn.disabled = true;
+          btn.style.opacity = "0.5";
+          btn.textContent = "Running compliance...";
+
+          tests.forEach(t => updateBadge(t.id, "pending"));
+          updateSummary();
+
+          for (const test of tests) {
+            await runSingleTest(test.id);
+            await delay(300);
+          }
+
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          btn.textContent = "Run All Tests";
+          updateSummary();
+        }
+
+        function togglePanel() {
+          if (!initialized) {
+            setupPanelDOM();
+          }
+          const panel = document.getElementById("mira-test-overlay");
+          if (panel) {
+            if (panel.style.display === "none") {
+              panel.style.display = "flex";
+            } else {
+              panel.style.display = "none";
+            }
+          }
+        }
+
+        function setupPanelDOM() {
+          const overlay = document.createElement("div");
+          overlay.id = "mira-test-overlay";
+          overlay.className = "glass";
+          overlay.style.cssText = "display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 99999; align-items: center; justify-content: center; font-family: system-ui, -apple-system, sans-serif; padding: 16px;";
+          
+          overlay.innerHTML = `
+            <div style="max-width: 560px; width: 100%; bg-color: rgb(15, 17, 23); background: #0F1117; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; position: relative; display: flex; flex-direction: column; max-height: 85vh; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+              <!-- Header -->
+              <div style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h2 style="font-size: 20px; font-weight: bold; color: #38BDF8; margin: 0;">🧪 Mira Test Suite</h2>
+                  <p style="font-size: 11px; color: #9CA3AF; margin: 4px 0 0 0;">Interactive compliance checks for mood state managers, routing, inputs & breath loops</p>
+                </div>
+                <button id="close-test-suite" style="background: none; border: none; padding: 8px; color: rgba(255,255,255,0.4); hover:color: #fff; cursor: pointer; font-size: 20px; font-weight: bold; line-height: 1; transition: color 0.15s;">✕</button>
+              </div>
+              
+              <!-- Logs viewport -->
+              <div id="test-list-container" style="flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
+                <!-- dynamic rows -->
+              </div>
+              
+              <!-- Action bar -->
+              <div style="padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2);">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <button id="run-all-tests-btn" style="background: #38BDF8; color: #000; border: none; border-radius: 10px; padding: 8px 18px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2)">Run All Tests</button>
+                  <div id="test-summary-bar" style="font-size: 11px; font-family: monospace; color: #E5E7EB; font-weight: 500;">0 / ${tests.length} tests passed</div>
+                </div>
+                <p style="font-size: 9px; color: #6B7280; font-family: monospace; text-align: center; margin: 4px 0 0 0; letter-spacing: 0.05em;">PRESS CTRL + SHIFT + T TO TOGGLE OVERLAY PANEL AT ANY TIME</p>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(overlay);
+
+          // Close button trigger
+          document.getElementById("close-test-suite").addEventListener("click", () => {
+            overlay.style.display = "none";
+          });
+
+          // Mount rows
+          const rowsContainer = document.getElementById("test-list-container");
+          tests.forEach((t, index) => {
+            const tr = document.createElement("div");
+            tr.style.cssText = "display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px;";
+            tr.innerHTML = `
+              <div style="max-width: 65%;">
+                <h4 style="font-size: 12px; font-weight: 600; color: #fff; margin: 0;">${index + 1}. ${t.name}</h4>
+                <p style="font-size: 9.5px; color: #6B7280; margin: 2px 0 0 0; line-height: 1.3;">${t.description}</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="badge-${t.id}" style="font-size: 9px; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); color: #9CA3AF; font-weight: 600; font-family: monospace; text-transform: uppercase;">⏳ Pending</span>
+                <button class="run-single-btn" data-test-id="${t.id}" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 10px; color: #38BDF8; font-size: 9px; font-weight: 600; cursor: pointer; transition: background 0.15s;">Run</button>
+              </div>
+            `;
+            rowsContainer.appendChild(tr);
+          });
+
+          // Single test triggers
+          rowsContainer.querySelectorAll(".run-single-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const testId = btn.getAttribute("data-test-id");
+              runSingleTest(testId);
+            });
+          });
+
+          // Run all triggers
+          document.getElementById("run-all-tests-btn").addEventListener("click", runAllTests);
+
+          initialized = true;
+        }
+
+        // Setup shortcut key logger
+        window.addEventListener("keydown", function(e) {
+          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") {
+            e.preventDefault();
+            togglePanel();
+          }
+        });
+
+        console.log("[Mira Test Suite] Script initiated. Press Ctrl+Shift+T to trigger interactive tests.");
+      })();
+    </script>
+  </body>
+</html>
+

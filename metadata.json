@@ -1,0 +1,6 @@
+{
+  "name": "Student Mental Wellness Tracker",
+  "description": "A dark-mode mental health and well-being tracker for Indian students preparing for high-pressure exams, featuring an AI wellness companion, reflection journal, and relief toolkit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
